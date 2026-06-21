@@ -10,7 +10,7 @@ require('dotenv').config();
 
 // 2. INISIALISASI APP (INI SANGAT PENTING)
 const app = express();
-const SECRET_KEY = process.env.JWT_SECRET || "kunci_rahasia_pothole";
+const SECRET_KEY = process.env.JWT_SECRET || "kunci_rahasia_bank_sampah";
 
 // 3. MIDDLEWARE
 app.use(express.json());
@@ -81,14 +81,14 @@ app.post('/login-face', async (req, res) => {
     }
 });
 
-// 6. ROUTES CRUD REPORTS
-app.post('/reports', authenticateToken, upload.single('pic'), async (req, res) => {
-    const { jalan, level_kerusakan } = req.body;
+// 6. ROUTES CRUD SAMPAH
+app.post('/sampah', authenticateToken, upload.single('pic'), async (req, res) => {
+    const { nama_sampah } = req.body;
     const pic = req.file ? req.file.filename : null;
     try {
         const [result] = await db.execute(
-            'INSERT INTO reports (jalan, level_kerusakan, pic) VALUES (?, ?, ?)',
-            [jalan, level_kerusakan, pic]
+            'INSERT INTO sampah (nama_sampah, pic) VALUES (?, ?)',
+            [nama_sampah, pic]
         );
         res.status(201).json({ message: "Data berhasil ditambah", id: result.insertId });
     } catch (err) {
@@ -96,10 +96,10 @@ app.post('/reports', authenticateToken, upload.single('pic'), async (req, res) =
     }
 });
 
-// --- READ ALL: Ambil Semua Data Reports ---
-app.get('/reports', authenticateToken, async (req, res) => {
+// --- READ ALL: Ambil Semua Data Sampah ---
+app.get('/sampah', authenticateToken, async (req, res) => {
     try {
-        const [rows] = await db.execute('SELECT * FROM reports');
+        const [rows] = await db.execute('SELECT * FROM sampah');
         // Menambahkan URL lengkap untuk gambar agar bisa diakses langsung
         const dataDenganUrl = rows.map(item => ({
             ...item, pic_url: item.pic ? `${req.protocol}://${req.get('host')}/uploads/${item.pic}` : null
@@ -110,10 +110,10 @@ app.get('/reports', authenticateToken, async (req, res) => {
     }
 });
 
-// --- READ ONE: Ambil Satu Data Reports Berdasarkan ID ---
-app.get('/reports/:id', authenticateToken, async (req, res) => {
+// --- READ ONE: Ambil Satu Data Sampah Berdasarkan ID ---
+app.get('/sampah/:id', authenticateToken, async (req, res) => {
     try {
-        const [rows] = await db.execute('SELECT * FROM reports WHERE id = ?', [req.params.id]);
+        const [rows] = await db.execute('SELECT * FROM sampah WHERE id = ?', [req.params.id]);
         if (rows.length === 0) return res.status(404).json({ message: "Data tidak ditemukan" });
         res.json(rows[0]);
     } catch (err) {
@@ -121,16 +121,16 @@ app.get('/reports/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// --- UPDATE: Perbarui Data Reports ---
-app.put('/reports/:id', authenticateToken, upload.single('pic'), async (req, res) => {
+// --- UPDATE: Perbarui Nama Sampah atau Gambar ---
+app.put('/sampah/:id', authenticateToken, upload.single('pic'), async (req, res) => {
     const { id } = req.params;
-    const { jalan, level_kerusakan } = req.body;
+    const { nama_sampah } = req.body;
     try {
         // Cek apakah data ada
-        const [existing] = await db.execute('SELECT * FROM reports WHERE id = ?', [id]);
+        const [existing] = await db.execute('SELECT * FROM sampah WHERE id = ?', [id]);
         if (existing.length === 0) return res.status(404).json({ message: "Data tidak ditemukan" });
-        let query = 'UPDATE reports SET jalan = ?, level_kerusakan = ?';
-        let params = [jalan || existing[0].jalan, level_kerusakan || existing[0].level_kerusakan];
+        let query = 'UPDATE sampah SET nama_sampah = ?';
+        let params = [nama_sampah || existing[0].nama_sampah];
         // Jika ada upload gambar baru
         if (req.file) {
             query += ', pic = ?';
@@ -145,18 +145,18 @@ app.put('/reports/:id', authenticateToken, upload.single('pic'), async (req, res
         query += ' WHERE id = ?';
         params.push(id);
         await db.execute(query, params);
-        res.json({ message: "Data reports berhasil diperbarui" });
+        res.json({ message: "Data sampah berhasil diperbarui" });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
 // --- DELETE: Hapus Data dan File Gambarnya ---
-app.delete('/reports/:id', authenticateToken, async (req, res) => {
+app.delete('/sampah/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     try {
         // Ambil info gambar sebelum data dihapus dari DB
-        const [rows] = await db.execute('SELECT pic FROM reports WHERE id = ?', [id]);
+        const [rows] = await db.execute('SELECT pic FROM sampah WHERE id = ?', [id]);
         if (rows.length === 0) return res.status(404).json({ message: "Data tidak ditemukan" });
         // Hapus file fisik jika ada
         if (rows[0].pic) {
@@ -164,8 +164,8 @@ app.delete('/reports/:id', authenticateToken, async (req, res) => {
             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         }
         // Hapus baris di database
-        await db.execute('DELETE FROM reports WHERE id = ?', [id]);
-        res.json({ message: "Data reports dan file gambar berhasil dihapus" });
+        await db.execute('DELETE FROM sampah WHERE id = ?', [id]);
+        res.json({ message: "Data sampah dan file gambar berhasil dihapus" });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
