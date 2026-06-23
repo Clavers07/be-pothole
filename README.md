@@ -13,5 +13,5 @@ HOW TO RUN - NODEJS (BACKEND):
 HOW TO RUN - PYTHON:
 - Open anaconda prompt
 - activate env with 'conda activate yourenv'
-- move directory with 'cd C:\laragon\www\bank-sampah'
+- move directory with 'cd C:\laragon\www\be-pothole'
 - run face recognition backend with 'python run.py'
