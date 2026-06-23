@@ -14,6 +14,14 @@ const SECRET_KEY = process.env.JWT_SECRET || "kunci_rahasia_pothole";
 
 // 3. MIDDLEWARE
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Pastikan req.body selalu terdefinisi (minimal objek kosong) untuk menghindari crash
+app.use((req, res, next) => {
+    if (!req.body) req.body = {};
+    next();
+});
+
 app.use('/uploads', express.static('uploads')); // Akses gambar via browser
 
 // Middleware Otorisasi JWT
@@ -41,14 +49,35 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
+// Route untuk cek koneksi API & Database
+app.get('/ping', async (req, res) => {
+    try {
+        await db.execute('SELECT 1');
+        res.json({
+            status: "connected",
+            message: "Server dan Database terhubung dengan baik."
+        });
+    } catch (err) {
+        res.status(500).json({
+            status: "error",
+            message: "Server aktif, tetapi tidak dapat terhubung ke Database.",
+            error: err.message
+        });
+    }
+});
+
 // 5. ROUTES LOGIN
-app.post('/login', async (req, res) => {
+app.post('/login', upload.none(), async (req, res) => {
     const { email, password } = req.body;
+    if (!email || !password) {
+        return res.status(400).json({ message: "Email dan password wajib diisi" });
+    }
     try {
         const [rows] = await db.execute('SELECT * FROM users WHERE email = ?', [email]);
         const user = rows[0];
+        const status = await bcrypt.compare(password, user.password);
         if (!user || !(await bcrypt.compare(password, user.password))) {
-            return res.status(400).json({ message: "Kredensial salah" });
+            return res.status(400).json({ message: "Kredensial salah", yours: user.password, input: password, hashed: bcrypt.hash(password), email: user.email, emailmu: email, status: status });
         }
         const token = jwt.sign({ id: user.id }, SECRET_KEY, { expiresIn: '1h' });
         res.json({ token });
@@ -58,8 +87,11 @@ app.post('/login', async (req, res) => {
 });
 
 // --- LOGIN WAJAH ---
-app.post('/login-face', async (req, res) => {
+app.post('/login-face', upload.none(), async (req, res) => {
     const { face_label } = req.body;
+    if (!face_label) {
+        return res.status(400).json({ message: "face_label wajib diisi" });
+    }
     try {
         // PERHATIAN: Karena tabel 'users' Anda hanya memiliki kolom 'email' dan 'password',
         // maka kita cocokkan face_label dengan kolom 'email'.
